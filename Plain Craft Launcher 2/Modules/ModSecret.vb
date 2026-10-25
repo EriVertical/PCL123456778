@@ -7,9 +7,9 @@ Friend Module ModSecret
     '在开源版的注册表与常规版的注册表隔离，以防数据冲突
     Public Const RegFolder As String = "PCLDebug"
     '用于微软登录的 ClientId
-    Public OAuthClientId As String = If(Environment.GetEnvironmentVariable("PCL_MS_CLIENT_ID"), "")
+    Public ReadOnly OAuthClientId As String = ServiceConfiguration.ReadClientId()
     'CurseForge API Key
-    Public CurseForgeAPIKey As String = If(Environment.GetEnvironmentVariable("PCL_CURSEFORGE_API_KEY"), "")
+    Public ReadOnly CurseForgeAPIKey As String = ServiceConfiguration.ReadApiKey()
     '用于匿名数据收集的腾讯云日志服务上报 URL，形如 https://{region}.cls.tencentcs.com/track?topic_id={topic_id}
     Public Const ClsBaseUrl As String = ""
 
@@ -34,7 +34,10 @@ Friend Module ModSecret
             End If
         End If
         If Not SimulateBrowserHeaders Then Req.Headers.Add("Referer", $"http://{VersionCode}.open.pcl2.server/")
-        If Url.Contains("api.curseforge.com") OrElse Url.Contains("forgecdn.net") Then Req.Headers.Add("x-api-key", CurseForgeAPIKey)
+        If ServiceConfiguration.IsCurseForgeApiUrl(Url) Then
+            If String.IsNullOrWhiteSpace(CurseForgeAPIKey) Then Throw New InvalidOperationException("尚未配置 CurseForge API Key，请前往 更多 → 百宝箱 → 服务配置，保存后重启启动器。也可以暂时使用 Modrinth。")
+            Req.Headers.Add("x-api-key", CurseForgeAPIKey)
+        End If
     End Sub
 
 #End Region

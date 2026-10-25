@@ -878,9 +878,17 @@ LoginFinish:
         End Try
     End Function
 
+    Private Sub RequireMicrosoftClientId()
+        If Not ServiceConfiguration.IsValidClientId(OAuthClientId) Then
+            Throw New Exception("$尚未配置有效的 Microsoft Client ID。请前往 更多 → 百宝箱 → 服务配置，填写应用程序（客户端）ID，保存并重启启动器。")
+        End If
+    End Sub
+
     '微软登录步骤 1，原始登录：获取 DeviceCode 并开启登录网页
     Private Function MsLoginStep1New(Data As LoaderTask(Of McLoginMs, McLoginResult)) As (OAuthAccessToken As String, OAuthRefreshToken As String)
         '参考：https://learn.microsoft.com/zh-cn/entra/identity-platform/v2-oauth2-device-code
+
+        RequireMicrosoftClientId()
 
         '初始请求
 Retry:
@@ -912,11 +920,12 @@ Retry:
     End Function
     '微软登录步骤 1，刷新登录：从 OAuth Code 或 OAuth RefreshToken 获取 {OAuth AccessToken, OAuth RefreshToken}
     Private Function MsLoginStep1Refresh(Code As String) As (OAuthAccessToken As String, OAuthRefreshToken As String)
+        RequireMicrosoftClientId()
         McLaunchLog("开始微软登录步骤 1/6（刷新登录）")
 
         Dim Result As String
         Try
-            Result = NetRequestByClientMultiple("https://login.live.com/oauth20_token.srf", HttpMethod.Post,
+            Result = NetRequestByClientMultiple("https://login.microsoftonline.com/consumers/oauth2/v2.0/token", HttpMethod.Post,
                 Content:=$"client_id={OAuthClientId}&refresh_token={StringUtils.FormUrlEscape(Code)}&grant_type=refresh_token&scope=XboxLive.signin%20offline_access",
                 ContentType:="application/x-www-form-urlencoded",
                 Headers:={{"Accept-Language", "en-US,en;q=0.5"}, {"X-Requested-With", "XMLHttpRequest"}},
@@ -926,7 +935,7 @@ Retry:
             Dim Response = ex.Response
             If Response.ContainsIgnoreCase("must sign in again") OrElse Response.ContainsIgnoreCase("password expired") OrElse
                (Response.Contains("refresh_token") AndAlso Response.ContainsIgnoreCase("is not valid")) OrElse '#269
-               Response.ContainsIgnoreCase("expired") Then '#8611
+               Response.ContainsIgnoreCase("expired") OrElse Response.Contains("invalid_grant") Then '#8611
                 Return ("Relogin", "")
             ElseIf Response.Contains("Account security interrupt") Then
                 MyMsgBox("该账号由于安全问题无法登陆，请前往微软账户页获取更多信息。", "登录失败", "我知道了", IsWarn:=True)
@@ -1027,7 +1036,7 @@ Retry:
                 Throw New Exception("$登录尝试太过频繁，请等待几分钟后再试！")
             ElseIf ex.StatusCode = HttpStatusCode.Forbidden Then
                 Logger.Warn(ex, "微软登录第 4 步汇报 403")
-                Throw New Exception("$当前 IP 的登录尝试异常。" & vbCrLf & "如果你使用了 VPN 或加速器，请把它们关掉或更换节点后再试！")
+                Throw New Exception("$Minecraft 登录服务拒绝访问（403）。" & vbCrLf & "请确认此 Client ID 已获准访问 Minecraft API；网络或 IP 被限制也可能导致此错误。若使用了 VPN 或加速器，可更换节点后再试。")
             ElseIf ex.StatusCode = HttpStatusCode.ServiceUnavailable Then
                 Logger.Warn(ex, "微软登录第 4 步汇报 503")
                 Throw New Exception("$Mojang 服务器出现问题，请稍后再试。" & vbCrLf & "你的网络是正常的，PCL 也是正常的，是 Mojang 出问题了……")

@@ -161,6 +161,7 @@
       <Private>False</Private>
     </Reference>
     <Reference Include="System.Configuration" />
+    <Reference Include="System.Security" />
     <Reference Include="System.Core" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.IO.Compression" />
@@ -257,6 +258,7 @@
     <Compile Include="Modules\ModDevelop.vb" />
     <Compile Include="Modules\Minecraft\ModWatcher.vb" />
     <Compile Include="Modules\ModSecret.vb" />
+    <Compile Include="Modules\ServiceConfiguration.vb" />
     <Compile Include="Pages\PageDownload\Resource\PageResource.xaml.vb">
       <DependentUpon>PageResource.xaml</DependentUpon>
     </Compile>

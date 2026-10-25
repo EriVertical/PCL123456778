@@ -449,7 +449,7 @@ Public Class FormMain
             Telemetry("启动")
             '开源版本提示
             If VersionBranchMain = "OpenSource" Then
-                MyMsgBox($"该版本中无法使用以下特性：{vbCrLf}- CurseForge API 调用：需要自行申请 API Key，然后添加到 ModSecret.vb 的开头{vbCrLf}- 正版登录：需要自行向微软申请 Client ID，然后添加到 ModSecret.vb 的开头{vbCrLf}- 更新与联网通知：避免滥用隐患{vbCrLf}- 主题切换：这是需要赞助解锁的纪念性质的功能，别让赞助者太伤心啦……{vbCrLf}- 百宝箱：开发早期往里面塞了些开发工具，整理起来太麻烦了……", "开源版本说明")
+                MyMsgBox($"服务配置与实用工具位于 更多 → 百宝箱。{vbCrLf}- CurseForge：填写自行申请的 API Key 后使用。{vbCrLf}- 正版登录：填写 Microsoft 应用程序（客户端）ID，并确认应用获准访问 Minecraft API。{vbCrLf}- 配置保存后请完全退出并重启启动器；也支持环境变量。{vbCrLf}- 百宝箱：提供 Java 搜索、整合包导入、游戏与日志文件夹、自定义下载。{vbCrLf}{vbCrLf}该版本仍不包含更新与联网通知，主题功能保持原样。", "开源版本说明")
             End If
         End Sub, "初始化", ThreadPriority.Lowest)
 
