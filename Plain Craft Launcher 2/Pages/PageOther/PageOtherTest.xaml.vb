@@ -7,6 +7,9 @@ Public Class PageOtherTest
     End Sub
 
     Private Sub RefreshServiceStatus()
+        LabApiKeyStorage.Text = If(String.IsNullOrWhiteSpace(ServiceConfiguration.ReadLocalApiKey()),
+            "本地 API Key 未保存或无法解密；若使用环境变量，请以下方本次运行状态为准。",
+            "本地 API Key 已保存并可解密（不回显）；留空保存会保留，重启后仍会读取。输入新 Key 可替换。")
         LabServiceStatus.Text = "本次运行：Microsoft Client ID " & If(ServiceConfiguration.IsValidClientId(OAuthClientId), "已配置", "未配置或格式无效") &
             "；CurseForge API Key " & If(String.IsNullOrWhiteSpace(CurseForgeAPIKey), "未配置或无法解密", "已配置") & "。配置状态不代表已获服务授权。"
     End Sub
@@ -15,6 +18,7 @@ Public Class PageOtherTest
         Try
             ServiceConfiguration.Save(TextClientId.Text, TextApiKey.Password)
             TextApiKey.Clear()
+            RefreshServiceStatus()
             Hint("配置已保存，请完全退出并重启启动器后使用。环境变量配置仍优先。", HintType.Green)
         Catch ex As ArgumentException
             Hint(ex.Message, HintType.Red)
@@ -29,6 +33,7 @@ Public Class PageOtherTest
         Try
             ServiceConfiguration.ClearApiKey()
             TextApiKey.Clear()
+            RefreshServiceStatus()
             Hint("本地 API Key 已清除，请重启启动器。", HintType.Green)
         Catch
             Hint("无法清除配置，请检查当前 Windows 用户的注册表访问权限。", HintType.Red)

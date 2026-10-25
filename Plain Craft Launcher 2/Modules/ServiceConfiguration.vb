@@ -27,6 +27,10 @@ Friend Module ServiceConfiguration
     Public Function ReadApiKey() As String
         Dim Value = Environment.GetEnvironmentVariable("PCL_CURSEFORGE_API_KEY")
         If Not String.IsNullOrWhiteSpace(Value) Then Return If(IsValidApiKey(Value.Trim()), Value.Trim(), "")
+        Return ReadLocalApiKey()
+    End Function
+
+    Public Function ReadLocalApiKey() As String
         Try
             Using Key = Registry.CurrentUser.OpenSubKey(RegistryPath)
                 Dim Encrypted = TryCast(Key?.GetValue("CurseForgeApiKey"), Byte())
