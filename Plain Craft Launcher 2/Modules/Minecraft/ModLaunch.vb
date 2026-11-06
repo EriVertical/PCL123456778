@@ -211,13 +211,8 @@ NextInner:
 
     Private Sub McLaunchMemoryOptimize(Loader As LoaderTask(Of Integer, Integer))
         McLaunchLog("内存优化开始")
-        Dim Finished As Boolean = False
-        RunInNewThread(
-        Sub()
-            PageOtherTest.MemoryOptimize(False)
-            Finished = True
-        End Sub, "Launch Memory Optimize")
-        Do While Not Finished AndAlso Not Loader.IsCanceled
+        Dim OptimizeThread = RunInNewThread(Sub() PageOtherTest.MemoryOptimize(False), "Launch Memory Optimize")
+        Do While OptimizeThread.IsAlive AndAlso Not Loader.IsCanceled
             If Loader.Progress < 0.7 Then
                 Loader.Progress += 0.007 '10s
             Else

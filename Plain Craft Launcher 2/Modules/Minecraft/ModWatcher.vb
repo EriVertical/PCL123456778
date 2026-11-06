@@ -83,10 +83,10 @@ Public Module ModWatcher
 
             '初始化进程与日志读取
             GameProcess = Loader.Input
-            GameProcess.BeginOutputReadLine()
-            GameProcess.BeginErrorReadLine()
             AddHandler GameProcess.OutputDataReceived, AddressOf LogReceived
             AddHandler GameProcess.ErrorDataReceived, AddressOf LogReceived
+            GameProcess.BeginOutputReadLine()
+            GameProcess.BeginErrorReadLine()
 
             '初始化时钟
             RunInNewThread(
@@ -101,7 +101,7 @@ Public Module ModWatcher
                         For i = 1 To 3
                             If IsWindowFinished AndAlso IsWindowAppeared AndAlso WindowTitle <> "" AndAlso State = MinecraftState.Running AndAlso Not GameProcess.HasExited Then
                                 Dim RealTitle As String = WindowTitle.Replace("{date}", Date.Now.ToString("yyyy'/'M'/'d")).Replace("{time}", Date.Now.ToString("HH':'mm':'ss"))
-                                SetWindowText(WindowHandle, RealTitle.ToCharArray)
+                                SetWindowText(WindowHandle, RealTitle)
                             End If
                             Thread.Sleep(64)
                         Next
@@ -148,13 +148,13 @@ Public Module ModWatcher
                 '输出文本
                 Dim Copyed As New List(Of String)
                 SyncLock WaitingLogLock
-                    If Not WaitingLog.Any() Then Return
                     Copyed = WaitingLog
                     WaitingLog = New List(Of String)(1000)
                 End SyncLock
                 For Each Str As String In Copyed
                     GameLog(Str)
                 Next
+                '窗口检测、进度和退出检查不能依赖下一条日志；Forge 加载时可能长时间没有输出。
                 If State = MinecraftState.Loading Then ProgressUpdate()
                 '游戏退出检查
                 If GameProcess.HasExited Then
@@ -310,17 +310,18 @@ Public Module ModWatcher
         ''' Nothing 代表未找到。
         ''' </summary>
         Private Function TryGetMinecraftWindow() As KeyValuePair(Of IntPtr, String)?
-            Dim Result = Nothing
+            Dim Result As KeyValuePair(Of IntPtr, String)? = Nothing
             EnumWindows(
-                Sub(hwnd As IntPtr, lParam As Integer)
-                    If Result IsNot Nothing Then Return
+                Function(hwnd As IntPtr, lParam As IntPtr) As Boolean
+                    '仅识别本次启动的游戏进程，不将其他 Java/GLFW 窗口误认为启动成功。
+                    Dim ProcessId As Integer
+                    If GetWindowThreadProcessId(hwnd, ProcessId) = 0 OrElse ProcessId <> PID Then Return True
+                    If Not IsWindowVisible(hwnd) Then Return True
                     '检查类名
                     Dim str As New StringBuilder(512)
                     GetClassName(hwnd, str, str.Capacity)
                     Dim ClassName As String = str.ToString
-                    If Not (ClassName = "GLFW30" OrElse ClassName = "SDL_app" OrElse ClassName = "LWJGL" OrElse ClassName = "SunAwtFrame") Then Return
-                    'SDL 会先创建隐藏窗口，待初始化完成后才显示（#9073）
-                    If ClassName = "SDL_app" AndAlso Not IsWindowVisible(hwnd) Then Return
+                    If Not (ClassName = "GLFW30" OrElse ClassName = "SDL_app" OrElse ClassName = "LWJGL" OrElse ClassName = "SunAwtFrame") Then Return True
                     '获取窗口标题名
                     str = New StringBuilder(512)
                     GetWindowText(hwnd, str, str.Capacity)
@@ -328,26 +329,18 @@ Public Module ModWatcher
                     '有的 Mod 可以修改窗口标题，所以不能检测是否为 Minecraft 打头，这并不准确
                     '部分版本会搞个 GLFW message window，高版本还有个 Hidden Utility Window，都要反选
                     If String.IsNullOrWhiteSpace(WindowText) OrElse WindowText = "SDL_app" OrElse WindowText = "PopupMessageWindow" OrElse
-                       WindowText.StartsWithF("GLFW") OrElse WindowText.EndsWithF("Hidden Utility Window") Then Return
-                    '获取窗口关联的进程
-                    Dim ProcessId As Integer
-                    GetWindowThreadProcessId(hwnd, ProcessId)
-                    Try
-                        If Process.GetProcessById(ProcessId).StartTime < GameProcess.StartTime Then Return '需要是此后启动的进程
-                    Catch ex As Exception
-                        Logger.Warn(ex, "枚举 Minecraft 窗口进程失败")
-                        Return
-                    End Try
+                       WindowText.StartsWithF("GLFW") OrElse WindowText.EndsWithF("Hidden Utility Window") Then Return True
                     '返回
                     Result = New KeyValuePair(Of IntPtr, String)(hwnd, WindowText)
-                End Sub, 0)
+                    Return False '找到目标窗口后才停止枚举
+                End Function, IntPtr.Zero)
             Return Result
         End Function
-        Private Delegate Sub EnumWindowsSub(hwnd As IntPtr, lParam As Integer)
-        Private Declare Function EnumWindows Lib "user32" (hWnd As EnumWindowsSub, lParam As Integer) As Boolean
-        Private Declare Function GetClassName Lib "user32" Alias "GetClassNameA" (hWnd As Integer, str As StringBuilder, maxCount As Integer) As Integer
-        Private Declare Function GetWindowText Lib "user32" Alias "GetWindowTextA" (hWnd As Integer, str As StringBuilder, maxCount As Integer) As Integer
-        Private Declare Function SetWindowText Lib "user32" Alias "SetWindowTextA" (hWnd As Integer, str As String) As Boolean
+        Private Delegate Function EnumWindowsCallback(hwnd As IntPtr, lParam As IntPtr) As Boolean
+        Private Declare Function EnumWindows Lib "user32" (Callback As EnumWindowsCallback, lParam As IntPtr) As Boolean
+        Private Declare Unicode Function GetClassName Lib "user32" Alias "GetClassNameW" (hWnd As IntPtr, str As StringBuilder, maxCount As Integer) As Integer
+        Private Declare Unicode Function GetWindowText Lib "user32" Alias "GetWindowTextW" (hWnd As IntPtr, str As StringBuilder, maxCount As Integer) As Integer
+        Private Declare Unicode Function SetWindowText Lib "user32" Alias "SetWindowTextW" (hWnd As IntPtr, str As String) As Boolean
         Private Declare Function ShowWindow Lib "user32" (hWnd As IntPtr, cmdWindow As UInteger) As Boolean
         Private Declare Function IsWindowVisible Lib "user32" (hWnd As IntPtr) As Boolean
         Private Declare Function GetWindowThreadProcessId Lib "user32" (hWnd As IntPtr, ByRef lpdwProcessId As Integer) As Integer

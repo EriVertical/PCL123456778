@@ -110,10 +110,33 @@ Public Class PageOtherTest
         Hint("此分支未提供自动垃圾清理，请自行确认需要清理的文件。")
     End Sub
     Public Shared Sub MemoryOptimize(ShowHint As Boolean)
-        If ShowHint Then Hint("此分支未提供系统内存优化。请关闭不需要的后台程序，或在启动设置中调整游戏内存。")
+        Try
+            Dim FreedKb As Long
+            If WindowsUtils.HasAdminRole() Then
+                Dim Before = My.Computer.Info.AvailablePhysicalMemory
+                MemoryOptimizeInternal(False)
+                Dim After = My.Computer.Info.AvailablePhysicalMemory
+                FreedKb = If(After > Before, CLng((After - Before) \ 1024UL), 0L)
+            Else
+                McLaunchLog("系统文件缓存回收需要管理员权限，正在请求 UAC 授权")
+                FreedKb = RunAsAdmin("--memory")
+                If FreedKb < 0 Then Throw New InvalidOperationException("内存优化子进程失败，缓存未完成回收。")
+            End If
+            Dim Message = $"系统文件缓存回收完成，可用内存增加约 {Math.Round(FreedKb / 1024.0)} MB（受其他程序内存变化影响）。"
+            McLaunchLog(Message)
+            If ShowHint Then Hint(Message, HintType.Green)
+        Catch ex As ComponentModel.Win32Exception When ex.NativeErrorCode = 1223
+            McLaunchLog("用户取消管理员授权，已跳过本次内存优化")
+            Hint("已取消管理员授权，本次不进行内存优化。")
+        Catch ex As Exception
+            Logger.Warn(ex, "系统文件缓存回收失败，已跳过本次内存优化")
+            Hint("内存优化未完成，已跳过。请检查管理员授权或查看日志。", HintType.Red)
+        End Try
     End Sub
     Public Shared Sub MemoryOptimizeInternal(ShowHint As Boolean)
-        MemoryOptimize(ShowHint)
+        If Not WindowsUtils.HasAdminRole() Then Throw New UnauthorizedAccessException("系统文件缓存回收需要管理员权限。")
+        SystemMemoryOptimization.TrimFileCache()
+        If ShowHint Then Hint("系统文件缓存回收完成。", HintType.Green)
     End Sub
     Public Shared Function GetRandomCave() As String
         Return "为便于维护，开源内容中不包含百宝箱功能……"

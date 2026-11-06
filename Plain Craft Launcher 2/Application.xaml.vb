@@ -59,11 +59,9 @@ Public Class Application
                         MsgBox(ex.Message, MsgBoxStyle.Critical, "内存优化失败")
                         Environment.Exit(-1)
                     End Try
-                    If My.Computer.Info.AvailablePhysicalMemory < Ram Then '避免 ULong 相减出现负数
-                        Environment.Exit(0)
-                    Else
-                        Environment.Exit((My.Computer.Info.AvailablePhysicalMemory - Ram) / 1024) '返回清理的内存量（K）
-                    End If
+                    Dim After = My.Computer.Info.AvailablePhysicalMemory
+                    Dim FreedKb = If(After > Ram, (After - Ram) \ 1024UL, 0UL)
+                    Environment.Exit(CInt(Math.Min(FreedKb, CULng(Integer.MaxValue)))) '返回可用内存增加量（K）
                 End If
             End If
             '初始化文件结构

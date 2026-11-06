@@ -813,9 +813,10 @@ Public Module ModBase
     ''' 返回程序的返回代码，如果运行失败将抛出异常。
     ''' </summary>
     Public Function RunAsAdmin(Argument As String) As Integer
-        Dim NewProcess = StartProcess(New ProcessStartInfo(PathExe) With {.Verb = "runas", .Arguments = Argument})
-        NewProcess.WaitForExit()
-        Return NewProcess.ExitCode
+        Using NewProcess = StartProcess(New ProcessStartInfo(PathExe) With {.UseShellExecute = True, .Verb = "runas", .Arguments = Argument})
+            NewProcess.WaitForExit()
+            Return NewProcess.ExitCode
+        End Using
     End Function
 
     Private Uuid As Integer = 1
