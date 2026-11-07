@@ -25,6 +25,16 @@
                     </WrapPanel>
                 </StackPanel>
             </local:MyCard>
+            <local:MyCard Title="内存清理" Margin="0,0,0,15">
+                <StackPanel Margin="25,40,25,20">
+                    <local:MyComboBox x:Name="ComboMemoryMode" Height="28" local:SettingService.Key="ToolMemoryOptimizeMode">
+                        <local:MyComboBoxItem Content="普通：回收系统文件缓存" />
+                        <local:MyComboBoxItem Content="深度：缓存与当前会话应用工作集（默认）" />
+                    </local:MyComboBox>
+                    <local:MyButton x:Name="BtnMemoryOptimize" Text="清理内存" MinWidth="140" Height="35" HorizontalAlignment="Left" Padding="13,0" Margin="0,12,0,8" />
+                    <TextBlock Text="启动前内存优化也使用此模式，默认深度。清理时可能申请管理员权限；跳过系统服务、其他用户及启动器。被回收的应用重新访问内存时可能短暂变慢，占用也可能回升。不保证固定回收比例。" TextWrapping="Wrap" Opacity="0.6" />
+                </StackPanel>
+            </local:MyCard>
             <local:MyCard Title="常用工具" Margin="0,0,0,15">
                 <StackPanel Margin="25,40,25,15">
                     <WrapPanel>

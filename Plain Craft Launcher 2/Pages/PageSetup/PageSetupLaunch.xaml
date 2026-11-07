@@ -129,7 +129,7 @@
                         <local:MySlider Grid.Row="2" Grid.Column="1" IsEnabled="False" x:Name="SliderRamCustom" local:SettingService.Key="LaunchRamCustom" MaxValue="49" Value="13" />
                         <local:MyCheckBox local:SettingService.Key="LaunchArgumentRam"
                                           Grid.Row="4" Grid.ColumnSpan="3" Text="启动游戏前进行内存优化" Height="22" x:Name="CheckArgumentRam"
-                                          ToolTip="启动前申请管理员权限，回收 Windows 系统文件缓存；实际效果取决于缓存占用，不保证固定回收量。&#xa;缓存重新加载可能造成短暂卡顿。取消授权或回收失败时会提示并跳过，继续启动游戏。&#xa;管理员进程可使用 --memory 参数执行缓存回收。" />
+                                          ToolTip="启动前申请管理员权限，默认深度回收当前会话应用工作集及系统文件缓存。可在 更多 → 百宝箱 → 内存清理 中切换普通模式。&#xa;重新访问内存可能造成短暂卡顿，占用可能回升，不保证固定回收量。&#xa;取消授权或回收失败会提示并跳过，继续启动游戏。" />
                         <!--<local:MyTextBox Grid.Row="2" Grid.Column="3" Width="100" VerticalAlignment="Center" Margin="30,0,0,0" Text="2048 MB" />-->
                     </Grid>
                     <Grid x:Name="PanRamDisplay" Margin="0,11,2,0" SnapsToDevicePixels="True" Grid.Row="1" Grid.ColumnSpan="2" Grid.Column="1">

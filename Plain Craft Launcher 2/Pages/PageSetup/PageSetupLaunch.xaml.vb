@@ -463,8 +463,8 @@ PreFin:
     Private Sub CheckArgumentRam_Change() Handles CheckArgumentRam.Change
         If AniControlEnabled <> 0 Then Return
         If Not CheckArgumentRam.Checked Then Return
-        If MyMsgBox("内存优化会回收 Windows 系统文件缓存，实际回收量取决于缓存占用，建议仅在需要时开启。" & vbCrLf &
-                    "缓存重新加载可能造成短暂卡顿，尤其是使用机械硬盘时。" &
+        If MyMsgBox("内存优化默认深度回收当前会话应用工作集及系统文件缓存，建议仅在需要时开启。" & vbCrLf &
+                    "应用重新访问内存时可能短暂变慢，占用也可能回升；可在百宝箱切换普通模式。" &
                     If(WindowsUtils.HasAdminRole(), "", $"{vbCrLf}{vbCrLf}每次启动游戏，仅内存优化子进程会申请管理员权限。{vbCrLf}取消授权会跳过本次优化，继续启动游戏。"),
                     "提醒", "确定", "取消") = 2 Then
             CheckArgumentRam.Checked = False

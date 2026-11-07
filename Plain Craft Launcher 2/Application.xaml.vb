@@ -9,7 +9,7 @@ Public Class Application
             '核心初始化
             MeloongCore.Main.Init("PCL")
             MeloongCore.Wpf.Main.Init()
-            If Not (e.Args.Contains("--update") OrElse e.Args.Contains("--gpu") OrElse e.Args.Contains("--memory")) Then '若是通过命令行调用，则不检查单例、不轮换日志（#9137）
+            If Not (e.Args.Contains("--update") OrElse e.Args.Contains("--gpu") OrElse e.Args.Contains("--memory") OrElse e.Args.Contains("--memory-v2")) Then '若是通过命令行调用，则不检查单例、不轮换日志（#9137）
                 WaitingMutex(e)
                 Logger.Instance = New PclLogger With {.logFolder = Paths.BaseThenName, .MinLevel = If(ModeDebug, LogLevel.Trace, LogLevel.Info)}
             End If
@@ -49,6 +49,17 @@ Public Class Application
                         Environment.Exit(ProcessReturnValues.TaskDone)
                     Catch ex As Exception
                         Environment.Exit(ProcessReturnValues.Fail)
+                    End Try
+                ElseIf e.Args(0) = "--memory-v2" Then
+                    '新版清理子进程返回步骤状态位；内存净变化由父进程采样。
+                    Try
+                        Dim ExcludedId As Integer
+                        If e.Args.Length <> 3 OrElse (e.Args(1) <> "deep" AndAlso e.Args(1) <> "cache") OrElse
+                            Not Integer.TryParse(e.Args(2), ExcludedId) OrElse ExcludedId <= 0 Then Throw New ArgumentException("内存清理参数无效。")
+                        Environment.Exit(PageOtherTest.RunMemoryOptimization(e.Args(1) = "deep", ExcludedId))
+                    Catch ex As Exception
+                        MsgBox(ex.Message, MsgBoxStyle.Critical, "内存优化失败")
+                        Environment.Exit(-1)
                     End Try
                 ElseIf e.Args(0) = "--memory" Then
                     '内存优化

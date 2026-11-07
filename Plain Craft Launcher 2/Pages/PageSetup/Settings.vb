@@ -122,6 +122,7 @@ Public Class Settings
         New Setting("ToolDownloadTranslateV2", 1, Source:=Sources.Registry),
         New Setting("ToolDownloadCert", False, Source:=Sources.Registry, OnChanged:=AddressOf ModNet.ShouldValidateSslCertificateOnLogin),
         New Setting("ToolDownloadMod", 2, Source:=Sources.Registry),
+        New Setting("ToolMemoryOptimizeMode", 1, Source:=Sources.Registry), '0=缓存；1=深度（默认）
         New Setting("ToolModLocalNameStyle", 0, Source:=Sources.Registry),
         New Setting("ToolUpdateRelease", False, Source:=Sources.Registry),
         New Setting("ToolUpdateSnapshot", False, Source:=Sources.Registry),

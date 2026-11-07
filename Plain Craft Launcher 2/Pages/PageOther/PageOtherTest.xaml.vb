@@ -1,6 +1,12 @@
 Public Class PageOtherTest
 
     Private Sub PageLoaded() Handles Me.Loaded
+        AniControlEnabled += 1
+        Try
+            SettingService.RefreshSettings(ComboMemoryMode)
+        Finally
+            AniControlEnabled -= 1
+        End Try
         TextClientId.Text = ServiceConfiguration.ReadLocalClientId()
         TextApiKey.Clear()
         RefreshServiceStatus()
@@ -109,30 +115,67 @@ Public Class PageOtherTest
     Public Shared Sub RubbishClear()
         Hint("此分支未提供自动垃圾清理，请自行确认需要清理的文件。")
     End Sub
+    Private Sub CleanMemory() Handles BtnMemoryOptimize.Click
+        BtnMemoryOptimize.IsEnabled = False
+        BtnMemoryOptimize.Text = "清理中…"
+        ComboMemoryMode.IsEnabled = False
+        RunInNewThread(
+        Sub()
+            Try
+                MemoryOptimize(True)
+            Finally
+                RunInUi(
+                Sub()
+                    BtnMemoryOptimize.IsEnabled = True
+                    BtnMemoryOptimize.Text = "清理内存"
+                    ComboMemoryMode.IsEnabled = True
+                End Sub)
+            End Try
+        End Sub, "Manual Memory Optimize")
+    End Sub
+
+    Private Shared ReadOnly MemoryOptimizeGate As New Object
     Public Shared Sub MemoryOptimize(ShowHint As Boolean)
+        If Not Monitor.TryEnter(MemoryOptimizeGate) Then
+            If ShowHint Then Hint("已有内存清理任务正在进行，请稍后再试。")
+            Return
+        End If
         Try
-            Dim FreedKb As Long
+            Dim Deep = Settings.Get(Of Integer)("ToolMemoryOptimizeMode") = 1
+            Dim Before = My.Computer.Info.AvailablePhysicalMemory
+            Dim Status As Integer
+            Dim CallerId As Integer
+            Using Current = Process.GetCurrentProcess()
+                CallerId = Current.Id
+            End Using
             If WindowsUtils.HasAdminRole() Then
-                Dim Before = My.Computer.Info.AvailablePhysicalMemory
-                MemoryOptimizeInternal(False)
-                Dim After = My.Computer.Info.AvailablePhysicalMemory
-                FreedKb = If(After > Before, CLng((After - Before) \ 1024UL), 0L)
+                Status = RunMemoryOptimization(Deep, CallerId)
             Else
-                McLaunchLog("系统文件缓存回收需要管理员权限，正在请求 UAC 授权")
-                FreedKb = RunAsAdmin("--memory")
-                If FreedKb < 0 Then Throw New InvalidOperationException("内存优化子进程失败，缓存未完成回收。")
+                McLaunchLog(If(Deep, "深度内存回收", "系统文件缓存回收") & "需要管理员权限，正在请求 UAC 授权")
+                Status = RunAsAdmin($"--memory-v2 {If(Deep, "deep", "cache")} {CallerId}")
+                If Status < 0 Then Throw New InvalidOperationException("内存优化子进程失败，清理未完成。")
             End If
-            Dim Message = $"系统文件缓存回收完成，可用内存增加约 {Math.Round(FreedKb / 1024.0)} MB（受其他程序内存变化影响）。"
+            Dim After = My.Computer.Info.AvailablePhysicalMemory
+            Dim FreedKb = If(After > Before, CLng((After - Before) \ 1024UL), 0L)
+            Dim Message = SystemMemoryOptimization.DescribeResult(FreedKb, Deep, Status)
             McLaunchLog(Message)
-            If ShowHint Then Hint(Message, HintType.Green)
+            Dim AnySuccess = (Status And (SystemMemoryOptimization.CacheCompleted Or SystemMemoryOptimization.WorkingSetsCompleted)) <> 0
+            Dim AnyFailure = (Status And (SystemMemoryOptimization.CacheFailed Or SystemMemoryOptimization.ProcessesFailed)) <> 0
+            If ShowHint OrElse Not AnySuccess Then Hint(Message, If(Not AnySuccess, HintType.Red, If(FreedKb > 0 AndAlso Not AnyFailure, HintType.Green, HintType.Blue)))
         Catch ex As ComponentModel.Win32Exception When ex.NativeErrorCode = 1223
             McLaunchLog("用户取消管理员授权，已跳过本次内存优化")
             Hint("已取消管理员授权，本次不进行内存优化。")
         Catch ex As Exception
-            Logger.Warn(ex, "系统文件缓存回收失败，已跳过本次内存优化")
+            Logger.Warn(ex, "内存回收失败，已跳过本次内存优化")
             Hint("内存优化未完成，已跳过。请检查管理员授权或查看日志。", HintType.Red)
+        Finally
+            Monitor.Exit(MemoryOptimizeGate)
         End Try
     End Sub
+    Friend Shared Function RunMemoryOptimization(Deep As Boolean, ExcludedProcessId As Integer) As Integer
+        If Not WindowsUtils.HasAdminRole() Then Throw New UnauthorizedAccessException("内存回收需要管理员权限。")
+        Return SystemMemoryOptimization.Execute(Deep, ExcludedProcessId)
+    End Function
     Public Shared Sub MemoryOptimizeInternal(ShowHint As Boolean)
         If Not WindowsUtils.HasAdminRole() Then Throw New UnauthorizedAccessException("系统文件缓存回收需要管理员权限。")
         SystemMemoryOptimization.TrimFileCache()

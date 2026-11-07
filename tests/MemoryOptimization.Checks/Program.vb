@@ -1,5 +1,6 @@
 Imports System
 Imports System.ComponentModel
+Imports System.Reflection
 Imports System.Runtime.InteropServices
 
 Module Program
@@ -9,9 +10,33 @@ Module Program
         If Args.Length <> 1 Then Throw New ArgumentException("Pass the absolute path to the Linux native memory fixture library.")
         Dim Handle = NativeLibrary.Load(Args(0))
         NativeLibrary.SetDllImportResolver(GetType(SystemMemoryOptimization).Assembly,
-            Function(Name, Assembly, SearchPath) If(Name = "kernel32.dll" OrElse Name = "advapi32.dll", Handle, IntPtr.Zero))
+            Function(Name, Assembly, SearchPath) If(Name = "kernel32.dll" OrElse Name = "advapi32.dll" OrElse Name = "psapi.dll", Handle, IntPtr.Zero))
         Dim Configure = Marshal.GetDelegateForFunctionPointer(Of ConfigureDelegate)(NativeLibrary.GetExport(Handle, "ConfigureMemory"))
         Dim Counter = Marshal.GetDelegateForFunctionPointer(Of CounterDelegate)(NativeLibrary.GetExport(Handle, "MemoryCounter"))
+
+        Check(SystemMemoryOptimization.DescribeResult(0).Contains("未观察到可用内存增加"), "zero delta must not imply memory was reclaimed")
+        Check(SystemMemoryOptimization.DescribeResult(2048).Contains("2 MB"), "positive delta is described as approximate net change")
+        Check(SystemMemoryOptimization.IsEligibleProcess(42, 1, "same-user", 99, 1, "same-user", 100), "same-user same-session application eligible")
+        For Each Id In {0, 4, 99, 100}
+            Check(Not SystemMemoryOptimization.IsEligibleProcess(Id, 1, "same-user", 99, 1, "same-user", 100), "system/helper/caller excluded")
+        Next
+        Check(Not SystemMemoryOptimization.IsEligibleProcess(42, 0, "same-user", 99, 0, "same-user", 100), "session zero excluded")
+        Check(Not SystemMemoryOptimization.IsEligibleProcess(42, 2, "same-user", 99, 1, "same-user", 100), "other session excluded")
+        Check(Not SystemMemoryOptimization.IsEligibleProcess(42, 1, "other-user", 99, 1, "same-user", 100), "other user excluded")
+        Check(Not SystemMemoryOptimization.IsEligibleProcess(42, 1, Nothing, 99, 1, "same-user", 100), "unknown process owner excluded")
+        Check(Not SystemMemoryOptimization.IsEligibleProcess(42, 1, "same-user", 99, 1, Nothing, 100), "unknown current owner excluded")
+        Dim PartialStatus = SystemMemoryOptimization.CacheFailed Or SystemMemoryOptimization.WorkingSetsCompleted Or SystemMemoryOptimization.ProcessesSkipped
+        Dim PartialText = SystemMemoryOptimization.DescribeResult(0, True, PartialStatus)
+        Check(PartialText.Contains("缓存步骤未完成"), "cache failure cannot be reported as cache success")
+        Check(PartialText.Contains("已回收可访问应用的工作集"), "working-set success reported independently")
+        Check(PartialText.Contains("已跳过"), "skipped processes must be disclosed")
+
+        Dim Trim = GetType(SystemMemoryOptimization).GetMethod("EmptyWorkingSet", BindingFlags.Static Or BindingFlags.NonPublic)
+        Configure(0)
+        Check(CBool(Trim.Invoke(Nothing, New Object() {New IntPtr(&H100000001L)})), "native working-set call preserves 64-bit process handle")
+        Check(Counter(5) = 1, "native working-set call executed")
+        Configure(9)
+        Check(Not CBool(Trim.Invoke(Nothing, New Object() {New IntPtr(&H100000001L)})), "denied working-set request reports failure")
 
         For Each Mode In {0, 7, 8}
             Configure(Mode)

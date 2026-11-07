@@ -5,16 +5,16 @@
 
 typedef struct { uint32_t low; int32_t high; } luid;
 typedef struct { uint32_t count; luid id; uint32_t attributes; } privileges;
-static int mode, cache_calls, closes, restores, enables, restored_attributes;
+static int mode, cache_calls, closes, restores, enables, restored_attributes, working_calls;
 static const uintptr_t test_token = (uintptr_t)UINT64_C(0x100000001);
 
 void ConfigureMemory(int value) {
     mode = value;
-    cache_calls = closes = restores = enables = restored_attributes = 0;
+    cache_calls = closes = restores = enables = restored_attributes = working_calls = 0;
 }
 int MemoryCounter(int kind) {
     return kind == 0 ? cache_calls : kind == 1 ? closes : kind == 2 ? restores :
-        kind == 3 ? enables : restored_attributes;
+        kind == 3 ? enables : kind == 4 ? restored_attributes : working_calls;
 }
 void *GetCurrentProcess(void) { return (void *)(intptr_t)-1; }
 int OpenProcessToken(void *process, uint32_t access, void **token) {
@@ -71,4 +71,11 @@ int CloseHandle(void *token) {
     ++closes;
     errno = 0;
     return (uintptr_t)token == test_token;
+}
+int EmptyWorkingSet(void *process) {
+    ++working_calls;
+    errno = 0;
+    if ((uintptr_t)process != test_token) { errno = 87; return 0; }
+    if (mode == 9) { errno = 5; return 0; }
+    return 1;
 }
